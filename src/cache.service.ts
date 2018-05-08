@@ -9,6 +9,7 @@ import { share } from 'rxjs/operators/share';
 import { map } from 'rxjs/operators/map';
 import { catchError } from 'rxjs/operators/catchError';
 import { Storage } from '@ionic/storage';
+import { CacheConfig } from './cache.module';
 
 export const MESSAGES = {
   0: 'Cache initialization error: ',
@@ -32,7 +33,10 @@ export class CacheService {
   static responseOptions: any;
   static httpDeprecated: boolean = false;
 
-  constructor(private _storage: Storage) {
+  constructor(
+    private _storage: Storage,
+    private _config: CacheConfig
+  ) {
     this.loadHttp();
     this.watchNetworkInit();
     this.loadCache();
@@ -84,7 +88,12 @@ export class CacheService {
   private async resetDatabase(): Promise<any> {
     await this.ready();
 
-    return await this._storage.clear();
+    let items = await this._getAllCachedItems();
+    return Promise.all(
+      items
+      .filter(item => item.value)
+      .map(item => this.removeItem(item.key))
+    );
   }
 
   /**
@@ -155,7 +164,7 @@ export class CacheService {
       type = CacheService.isRequest(data) ? 'request' : typeof data,
       value = JSON.stringify(data);
 
-    return this._storage.set(key, {
+    return this._storage.set(this.buildKey(key), {
       value,
       expires,
       type,
@@ -173,7 +182,7 @@ export class CacheService {
       throw new Error(MESSAGES[1]);
     }
 
-    return this._storage.remove(key);
+    return this._storage.remove(this.buildKey(key));
   }
 
   /**
@@ -187,8 +196,8 @@ export class CacheService {
     }
 
     try {
-      let data = await this._storage.get(key);
-      if(!!data) {
+      let data = await this._storage.get(this.buildKey(key));
+      if (!!data) {
         return data;
       }
 
@@ -209,7 +218,7 @@ export class CacheService {
     }
 
     let keys = await this._storage.keys();
-    return keys.indexOf(key) > -1;
+    return keys.indexOf(this.buildKey(key)) > -1;
   }
 
   /**
@@ -383,7 +392,7 @@ export class CacheService {
    * @param {boolean} ignoreOnlineStatus -
    * @return {Promise<any>} - query promise
    */
-  clearExpired(ignoreOnlineStatus = false): Promise<any> {
+  async clearExpired(ignoreOnlineStatus = false): Promise<any> {
     if (!this.cacheEnabled) {
       throw new Error(MESSAGES[2]);
     }
@@ -393,12 +402,12 @@ export class CacheService {
     }
 
     let datetime = new Date().getTime();
-    let promises: Promise<any>[] = [];
-    this._storage.forEach((val, key) => {
-      if (val && val.expires < datetime) promises.push(this.removeItem(key));
-    });
-
-    return Promise.all(promises);
+    let items = await this._getAllCachedItems();
+    return Promise.all(
+      items
+      .filter(item => item.value && item.value.expires < datetime)
+      .map(item => this.removeItem(item.key))
+    );
   }
 
   /**
@@ -411,12 +420,23 @@ export class CacheService {
       throw new Error(MESSAGES[2]);
     }
 
-    let promises: Promise<any>[] = [];
+    let items = await this._getAllCachedItems();
+    return Promise.all(
+      items
+      .filter(item => item.value && item.value.groupKey === groupKey)
+      .map(item => this.removeItem(item.key))
+    );
+  }
+
+  private async _getAllCachedItems() {
+    let items: { key: string, value: any }[] = [];
     await this._storage.forEach((val: any, key: string) => {
-      if (val && val.groupKey === groupKey) promises.push(this.removeItem(key));
+      if (key.startsWith(this._config.keyPrefix)) {
+        items.push({ key: key, value: val });
+      }
     });
 
-    return Promise.all(promises);
+    return items;
   }
 
   /**
@@ -442,5 +462,17 @@ export class CacheService {
     }
 
     return data && (data instanceof CacheService.request || orCondition);
+  }
+
+  /**
+   * Makes sure that the key is prefixed properly
+   * @return {string}
+   */
+  private buildKey(key: string) {
+    if (key.startsWith(this._config.keyPrefix)) {
+      return key;
+    }
+
+    return this._config.keyPrefix + key;
   }
 }

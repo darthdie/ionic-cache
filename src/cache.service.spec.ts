@@ -7,12 +7,13 @@ import 'zone.js/dist/jasmine-patch';
 import 'zone.js/dist/async-test';
 import 'zone.js/dist/fake-async-test';
 import { CacheService, MESSAGES } from './cache.service';
+import { CacheModule, CacheConfig } from './cache.module';
 import { TestBed } from '@angular/core/testing';
 import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting
 } from '@angular/platform-browser-dynamic/testing';
-import { Storage } from '@ionic/storage';
+import { Storage, IonicStorageModule } from '@ionic/storage';
 
 import { of } from 'rxjs/observable/of';
 import { _throw } from 'rxjs/observable/throw';
@@ -22,6 +23,24 @@ TestBed.initTestEnvironment(
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting()
 );
+
+describe('CacheModule.forRoot()', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [
+        IonicStorageModule.forRoot({
+          name: '__ionicCache',
+          driverOrder: ['indexeddb', 'sqlite', 'websql']
+        }),
+        CacheModule.forRoot()
+      ]
+    });
+  });
+
+  it(`should provide services`, () => {
+    expect(TestBed.get(Storage)).toBeTruthy();
+  });
+});
 
 describe('CacheService', () => {
   let service: CacheService;
@@ -37,7 +56,8 @@ describe('CacheService', () => {
       new Storage({
         name: '__ionicCache',
         driverOrder: ['indexeddb', 'sqlite', 'websql']
-      })
+      }),
+      { keyPrefix: 'ionic-cache-test-' }
     );
 
     await service.ready();
@@ -195,6 +215,49 @@ describe('CacheService', () => {
   });
 });
 
+describe('deleting items', () => {
+  let service: CacheService;
+  let storage: Storage;
+  let storageKey = 'bob loblaw';
+  let storageValue = 'lawblog';
+  let cacheKey = 'banana stand';
+  let cacheValue = 'always money';
+
+  beforeAll(async done => {
+    storage = new Storage({
+      name: '__ionicCache',
+      driverOrder: ['indexeddb', 'sqlite', 'websql']
+    });
+
+    service = new CacheService(
+      storage,
+      { keyPrefix: 'ionic-cache-test-' }
+    );
+
+    await service.ready();
+    done();
+  });
+
+  it('should only clear cache items', async () => {
+    await storage.set(storageKey, storageValue);
+    await service.saveItem(cacheKey, cacheValue);
+    await service.clearAll();
+
+    let keys = await storage.keys();
+    expect(keys.length).toEqual(1);
+    expect(keys[0]).toEqual(storageKey);
+  });
+
+  afterAll(async done => {
+    try {
+      await service.clearAll();
+      await (<Storage>TestBed.get(Storage)).clear();
+    } catch (e) {}
+
+    done();
+  });
+});
+
 describe('Observable Caching', () => {
   const key: string = 'http_cache_test';
 
@@ -212,7 +275,8 @@ describe('Observable Caching', () => {
       new Storage({
         name: '__ionicCache',
         driverOrder: ['indexeddb', 'sqlite', 'websql']
-      })
+      }),
+      { keyPrefix: 'ionic-cache-test-' }
     );
 
     await service.ready();
@@ -276,7 +340,8 @@ describe('Observable caching errors', () => {
       new Storage({
         name: '__ionicCache',
         driverOrder: ['indexeddb', 'sqlite', 'websql']
-      })
+      }),
+      { keyPrefix: 'ionic-cache-test-' }
     );
 
     await service.ready();
@@ -334,7 +399,8 @@ describe('Delayed observable caching', () => {
       new Storage({
         name: '__ionicCache',
         driverOrder: ['indexeddb', 'sqlite', 'websql']
-      })
+      }),
+      { keyPrefix: 'ionic-cache-test-' }
     );
 
     await service.ready();
@@ -433,7 +499,8 @@ describe('Delayed observable caching error', () => {
       new Storage({
         name: '__ionicCache',
         driverOrder: ['indexeddb', 'sqlite', 'websql']
-      })
+      }),
+      { keyPrefix: 'ionic-cache-test-' }
     );
 
     await service.ready();
