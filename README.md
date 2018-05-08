@@ -182,7 +182,7 @@ console.log('Saved data: ', data);
 ...
 ```
 
-### Removing cached items
+##### Removing cached items
 
 You can also remove cached items by using the `removeItem` method.
 
@@ -194,7 +194,7 @@ this.cache.removeItem(key);
 ...
 ```
 
-### Cached promise existence
+#### Cached promise existence
 
 If you need to check whether or not an item has been cached, ignoring whether or not it's expired, you can use the `itemExists` method.
 
@@ -206,7 +206,7 @@ let exists = await this.cache.itemExists(key); // returns either a boolean indic
 ...
 ```
 
-### Raw cached item
+#### Raw cached item
 
 If you ever need to get a cached item regardless of whether it's expired or not, you can use the `getRawItem` method.
 
@@ -293,4 +293,17 @@ You can also disable invalidating cached items when the device is offline.
 
 ```js
 this.cache.setOfflineInvalidate(false);
+```
+
+#### Connection check
+
+```js
+this.cache.isOnline(); // Returns a bool representing whether the device has a connnection
+```
+
+#### Connection check observable
+
+```js
+this.cache.getNetworkStatusChanges()
+.subscribe(isOnline => console.log('Are we online?', isOnline))
 ```
