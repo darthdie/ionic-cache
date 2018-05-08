@@ -182,7 +182,7 @@ console.log('Saved data: ', data);
 ...
 ```
 
-##### Removing cached items
+#### Removing cached items
 
 You can also remove cached items by using the `removeItem` method.
 
@@ -191,6 +191,23 @@ You can also remove cached items by using the `removeItem` method.
 let key = 'some-promise';
 
 this.cache.removeItem(key);
+...
+```
+
+#### Removing multiple cached items
+
+You can utilize the `removeItems` method to remove multiple items based on a wildcard pattern.
+
+```js
+...
+await Promise.all([
+    service.saveItem('movies/comedy/1', 'Scott Pilgrim vs. The World'),
+    service.saveItem('movies/comedy/2', 'The Princess Bride'),
+    service.saveItem('songs/metal/1', 'Who Bit the Moon'),
+    service.saveItem('songs/metal/2', 'Deception - Concealing Fate, Pt. 2'),
+]);
+
+this.cache.removeItems('songs/metal/*');
 ...
 ```
 

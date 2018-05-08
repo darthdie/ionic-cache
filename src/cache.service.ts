@@ -11,6 +11,13 @@ import { catchError } from 'rxjs/operators/catchError';
 import { Storage } from '@ionic/storage';
 import { CacheConfig } from './cache.module';
 
+export interface CacheItem {
+  value: string;
+  expires: number;
+  type: string;
+  groupKey: string;
+}
+
 export const MESSAGES = {
   0: 'Cache initialization error: ',
   1: 'Cache is not enabled.',
@@ -88,7 +95,7 @@ export class CacheService {
   private async resetDatabase(): Promise<any> {
     await this.ready();
 
-    let items = await this._getAllCachedItems();
+    let items = await this.getAllCachedItems();
     return Promise.all(
       items
       .filter(item => item.value)
@@ -186,11 +193,30 @@ export class CacheService {
   }
 
   /**
+   * @description Removes all items with a key that matches pattern
+   * @return {Promise<any>}
+   */
+  async removeItems(pattern: string): Promise<any> {
+    if (!this.cacheEnabled) {
+      throw new Error(MESSAGES[1]);
+    }
+
+    let regex = new RegExp(`^${pattern.split('*').join('.*')}$`);
+    let items = await this.getAllCachedItems();
+
+    return Promise.all(
+      items
+      .filter(item => item && regex.test(this.debuildKey(item.key)))
+      .map(item => this.removeItem(item.key))
+    );
+  }
+
+  /**
    * @description Get item from cache without expire check etc.
    * @param {string} key - Unique key
    * @return {Promise<any>} - data from cache
    */
-  async getRawItem(key: string): Promise<any> {
+  async getRawItem(key: string): Promise<CacheItem> {
     if (!this.cacheEnabled) {
       throw new Error(MESSAGES[1]);
     }
@@ -402,7 +428,7 @@ export class CacheService {
     }
 
     let datetime = new Date().getTime();
-    let items = await this._getAllCachedItems();
+    let items = await this.getAllCachedItems();
     return Promise.all(
       items
       .filter(item => item.value && item.value.expires < datetime)
@@ -420,7 +446,7 @@ export class CacheService {
       throw new Error(MESSAGES[2]);
     }
 
-    let items = await this._getAllCachedItems();
+    let items = await this.getAllCachedItems();
     return Promise.all(
       items
       .filter(item => item.value && item.value.groupKey === groupKey)
@@ -428,8 +454,8 @@ export class CacheService {
     );
   }
 
-  private async _getAllCachedItems() {
-    let items: { key: string, value: any }[] = [];
+  private async getAllCachedItems() {
+    let items: { key: string, value: CacheItem }[] = [];
     await this._storage.forEach((val: any, key: string) => {
       if (key.startsWith(this._config.keyPrefix)) {
         items.push({ key: key, value: val });
@@ -468,11 +494,23 @@ export class CacheService {
    * Makes sure that the key is prefixed properly
    * @return {string}
    */
-  private buildKey(key: string) {
+  private buildKey(key: string): string {
     if (key.startsWith(this._config.keyPrefix)) {
       return key;
     }
 
     return this._config.keyPrefix + key;
+  }
+
+  /**
+   * Makes sure that the key does not have the prefix
+   * @return {string}
+   */
+  private debuildKey(key: string): string {
+    if (key.startsWith(this._config.keyPrefix)) {
+      return key.slice(this._config.keyPrefix.length);
+    }
+
+    return key;
   }
 }

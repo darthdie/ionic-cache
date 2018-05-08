@@ -6,7 +6,7 @@ import 'zone.js/dist/sync-test';
 import 'zone.js/dist/jasmine-patch';
 import 'zone.js/dist/async-test';
 import 'zone.js/dist/fake-async-test';
-import { CacheService, MESSAGES } from './cache.service';
+import { CacheService, MESSAGES, CacheItem } from './cache.service';
 import { CacheModule, CacheConfig } from './cache.module';
 import { TestBed } from '@angular/core/testing';
 import {
@@ -215,7 +215,7 @@ describe('CacheService', () => {
   });
 });
 
-describe('deleting items', () => {
+describe('CacheService Deletion', () => {
   let service: CacheService;
   let storage: Storage;
   let storageKey = 'bob loblaw';
@@ -223,7 +223,7 @@ describe('deleting items', () => {
   let cacheKey = 'banana stand';
   let cacheValue = 'always money';
 
-  beforeAll(async done => {
+  beforeEach(async done => {
     storage = new Storage({
       name: '__ionicCache',
       driverOrder: ['indexeddb', 'sqlite', 'websql']
@@ -235,6 +235,8 @@ describe('deleting items', () => {
     );
 
     await service.ready();
+    await service.clearAll();
+
     done();
   });
 
@@ -248,10 +250,37 @@ describe('deleting items', () => {
     expect(keys[0]).toEqual(storageKey);
   });
 
+  it('should remove items', async () => {
+    await service.saveItem(cacheKey, cacheValue);
+    await service.removeItem(cacheKey);
+
+    let keys = await (<any>service).getAllCachedItems();
+    expect(keys.length).toEqual(0);
+  });
+
+  it('should remove items via wildcard', async () => {
+    await Promise.all([
+      service.saveItem('movies/comedy/1', 'Scott Pilgrim vs. The World'),
+      service.saveItem('movies/comedy/2', 'The Princess Bride'),
+      service.saveItem('songs/metal/1', 'Who Bit the Moon'),
+      service.saveItem('songs/metal/2', 'Hail The Apocalypse'),
+      service.saveItem('songs/electronica/1', 'Power Glove'),
+      service.saveItem('songs/electronica/2', 'Centipede'),
+    ]);
+
+    await service.removeItems('movies/*');
+    let keys: { key: string, value: CacheItem }[] = await (<any>service).getAllCachedItems();
+    expect(keys.length).toEqual(4);
+
+    await service.removeItems('*electronica*');
+    keys = await (<any>service).getAllCachedItems();
+    expect(keys.length).toEqual(2);
+  });
+
   afterAll(async done => {
     try {
       await service.clearAll();
-      await (<Storage>TestBed.get(Storage)).clear();
+      await storage.clear();
     } catch (e) {}
 
     done();
