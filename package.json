@@ -55,7 +55,7 @@
     "karma-typescript-es6-transform": "^1.0.4",
     "rimraf": "^2.6.2",
     "rxjs": "^5.5.0",
-    "tslint": "^3.15.1",
+    "tslint": "^5.10.0",
     "tslint-ionic-rules": "^0.0.8",
     "typescript": "~2.6.0",
     "zone.js": "^0.8.11"
